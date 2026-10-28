@@ -35,6 +35,13 @@ I also enjoy experimenting with new ideas, working on diverse projects, and part
 
 <p>
   <img src="https://skillicons.dev/icons?i=react&theme=dark" width="48" height="48" alt="React" title="React" />
+  <img src="https://skillicons.dev/icons?i=svelte&theme=dark" width="48" height="48" alt="SvelteKit" title="SvelteKit" />
+  <img src="https://skillicons.dev/icons?i=tailwind&theme=dark" width="48" height="48" alt="Tailwind CSS" title="Tailwind CSS" />
+  <img src="https://skillicons.dev/icons?i=nodejs&theme=dark" width="48" height="48" alt="Node.js" title="Node.js" />
+  <img src="https://skillicons.dev/icons?i=express&theme=dark" width="48" height="48" alt="Express.js" title="Express.js" />
+  <img src="https://skillicons.dev/icons?i=supabase&theme=dark" width="48" height="48" alt="Supabase" title="Supabase" />
+  <img src="https://skillicons.dev/icons?i=postgres&theme=dark" width="48" height="48" alt="PostgreSQL" title="PostgreSQL" />
+  <img src="https://skillicons.dev/icons?i=mongodb&theme=dark" width="48" height="48" alt="MongoDB" title="MongoDB" />
   <img src="./assets/tech/phaser.svg" width="48" height="48" alt="Phaser" title="Phaser" />
   <img src="https://skillicons.dev/icons?i=unity&theme=dark" width="48" height="48" alt="Unity" title="Unity" />
   <img src="https://skillicons.dev/icons?i=robloxstudio&theme=dark" width="48" height="48" alt="Roblox Studio" title="Roblox Studio" />
