@@ -60,9 +60,9 @@ I also enjoy experimenting with new ideas, working on diverse projects, and part
 
 <p align="center">
   <img align="top" width="49%" alt="GitHub Stats"
-    src="https://github-readme-stats.vercel.app/api?username=souruuu&show_icons=true&hide_rank=false&hide_border=false&card_width=495&bg_color=161b22&title_color=ad91ff&text_color=e6edf3&icon_color=ad91ff&ring_color=ad91ff&border_color=30363d&border_radius=10&custom_title=souruuu%27s%20GitHub%20Stats" />
+    src="https://github-stats-extended.vercel.app/api?username=souruuu&show_icons=true&hide_rank=false&hide_border=false&card_width=495&bg_color=161b22&title_color=ad91ff&text_color=e6edf3&icon_color=ad91ff&ring_color=ad91ff&border_color=30363d&border_radius=10&custom_title=souruuu%27s%20GitHub%20Stats" />
   <img align="top" width="49%" alt="Most Used Languages"
-    src="https://github-readme-stats.vercel.app/api/top-langs/?username=souruuu&layout=compact&card_width=495&langs_count=8&hide_border=false&bg_color=161b22&title_color=ad91ff&text_color=e6edf3&border_color=30363d&border_radius=10" />
+    src="https://github-stats-extended.vercel.app/api/top-langs/?username=souruuu&layout=compact&card_width=495&langs_count=8&hide_border=false&bg_color=161b22&title_color=ad91ff&text_color=e6edf3&border_color=30363d&border_radius=10" />
 </p>
 
 <p align="center">
