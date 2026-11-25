@@ -2,9 +2,10 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { renderLanguages, validateLanguagesSvg } from '../../scripts/stats/cards.mjs'
 import { renderStats } from '../../scripts/stats/stats.mjs'
-import { loadCore } from '../../scripts/stats/upstream.mjs'
+import { CARD_STYLE, languageColors, loadCore } from '../../scripts/stats/upstream.mjs'
 
 const { calculateRank } = await loadCore('calculateRank.js')
+const { renderTopLanguages } = await loadCore('cards/top-languages.js')
 
 const bytes = new Map([
   ['JavaScript', 350], ['Python', 200], ['CSS', 100], ['TypeScript', 50],
@@ -12,16 +13,45 @@ const bytes = new Map([
 ])
 
 test('renders eight byte-weighted percentages with the upstream top-eight denominator', () => {
-  const svg = renderLanguages(bytes)
+  const svg = renderLanguages(new Map([...bytes, ['Rich Text Format', 900_000]]))
   validateLanguagesSvg(svg)
   assert.match(svg, /JavaScript 43\.75%/)
   assert.match(svg, /Rust 1\.25%/)
-  assert.doesNotMatch(svg, /Ruby/)
+  assert.doesNotMatch(svg, /Ruby|Rich Text Format/)
   assert.equal(svg, renderLanguages(new Map([...bytes].reverse())))
   assert.match(svg, /width="495"/)
   assert.match(svg, /fill="#161b22"/)
   assert.match(svg, /stroke="#30363d"/)
   assert.match(svg, /rx="10"/)
+})
+
+test('removes document and prose bytes and preserves software markup', () => {
+  const svg = renderLanguages(new Map([
+    ['Rich Text Format', 900_000], ['Markdown', 45_000], ['Text', 20_000],
+    ['HTML', 500], ['CSS', 300], ['Svelte', 200],
+  ]))
+  validateLanguagesSvg(svg)
+  assert.doesNotMatch(svg, /Rich Text Format|Markdown|\bText \d/)
+  assert.match(svg, /HTML 50\.00%/)
+  assert.match(svg, /CSS 30\.00%/)
+  assert.match(svg, /Svelte 20\.00%/)
+})
+
+test('fails closed when only excluded languages are present', () => {
+  assert.throws(() => renderLanguages(new Map([
+    ['Rich Text Format', 900_000], ['Markdown', 40],
+  ])), /no eligible language bytes/i)
+  assert.throws(() => renderLanguages(new Map([
+    ['Rich Text Format', -1], ['HTML', 50],
+  ])), /invalid aggregate/i)
+})
+
+test('rejects a structurally valid legacy card containing an excluded label', () => {
+  for (const name of ['Rich Text Format', 'Markdown']) {
+    const legacy = renderTopLanguages({ [name]: { name, size: 500, color: languageColors[name] } },
+      { ...CARD_STYLE, layout: 'compact', langs_count: 8 })
+    assert.throws(() => validateLanguagesSvg(legacy), /^Error: Invalid language SVG\.$/)
+  }
 })
 
 test('renders known colorless languages and legitimate extreme or equal ratios', () => {

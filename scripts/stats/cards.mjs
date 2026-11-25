@@ -5,6 +5,29 @@ import { CARD_STYLE, languageColors, loadCore } from './upstream.mjs'
 const { getLongestLang, renderTopLanguages } = await loadCore('cards/top-languages.js')
 const { measureText } = await loadCore('common/render.js')
 const LANGUAGE_LIMIT = 8
+// The prose entries come from the same Linguist v9.7.0 snapshot as our labels.
+// Rich Text Format is a document format that Linguist classifies as markup.
+const EXCLUDED_LANGUAGES = new Set([
+  'AsciiDoc',
+  'Creole',
+  'Gemini',
+  'Gettext Catalog',
+  'Markdown',
+  'Muse',
+  'Org',
+  'Pod',
+  'Pod 6',
+  'RDoc',
+  'RMarkdown',
+  'reStructuredText',
+  'Rich Text Format',
+  'Sweave',
+  'Texinfo',
+  'Text',
+  'Textile',
+  'Vim Help File',
+  'Wikitext',
+])
 
 export function renderLanguages(bytes) {
   const entries = [...bytes]
@@ -13,8 +36,11 @@ export function renderLanguages(bytes) {
       || !Number.isSafeInteger(entries.reduce((sum, [, size]) => sum + size, 0))) {
     throw new Error('Invalid aggregate language metrics.')
   }
-  entries.sort(([a, left], [b, right]) => right - left || (a < b ? -1 : 1))
-  const data = Object.fromEntries(entries.map(([name, size]) => [
+  const eligible = entries.filter(([name]) => !EXCLUDED_LANGUAGES.has(name))
+  if (!eligible.length) throw new Error('No eligible language bytes to render.')
+
+  eligible.sort(([a, left], [b, right]) => right - left || (a < b ? -1 : 1))
+  const data = Object.fromEntries(eligible.map(([name, size]) => [
     name, { name, size, color: languageColors[name] },
   ]))
   return renderTopLanguages(data, { ...CARD_STYLE, layout: 'compact', langs_count: LANGUAGE_LIMIT })
@@ -56,7 +82,7 @@ function describeLanguages(labels) {
   for (const label of labels) {
     const match = label.children.length === 1 && typeof label.children[0] === 'string'
       && /^(.+) ((?:0|[1-9][0-9]{0,2})\.[0-9]{2})%$/.exec(label.children[0])
-    if (!match || !Object.hasOwn(languageColors, match[1]) || names.has(match[1])
+    if (!match || !Object.hasOwn(languageColors, match[1]) || EXCLUDED_LANGUAGES.has(match[1]) || names.has(match[1])
         || Number(match[2]) > 100) throw invalidSvg()
     names.add(match[1])
     percentages.push(Number(match[2]))
