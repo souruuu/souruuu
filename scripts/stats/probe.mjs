@@ -15,6 +15,11 @@ export function parseInventory(inventory) {
   throw new Error('Invalid approved repository inventory.')
 }
 
+export function validateCredential(token) {
+  if (!/^[\x21-\x7e]+$/.test(token ?? '')) throw new Error('TOKEN_UNAVAILABLE')
+  return token
+}
+
 export function readGitHub(token, fetch = globalThis.fetch) {
   async function request(path, body) {
     let response
@@ -193,11 +198,10 @@ if (import.meta.main) {
   delete process.env.PROBE_TOKEN
   delete process.env.PROBE_APPROVED_IDS
   try {
-    if (!/^(?:ghs_|github_pat_)[A-Za-z0-9_]+$/.test(token ?? '')) throw new Error()
-    const reports = await probe(readGitHub(token), parseInventory(inventory), new Date())
+    const reports = await probe(readGitHub(validateCredential(token)), parseInventory(inventory), new Date())
     for (const [label, status] of reports) console.log(`${label}: ${status}`)
-  } catch {
-    console.error('Stats probe setup failed.')
+  } catch (error) {
+    console.error(error?.message === 'TOKEN_UNAVAILABLE' ? 'Stats probe credential unavailable.' : 'Stats probe setup failed.')
     process.exitCode = 1
   }
 }
