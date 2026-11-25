@@ -15,13 +15,17 @@ const repo = {
   id, name: marker, owner: { login: 'souruuu' }, private: true, visibility: 'private', fork: false,
 }
 
-function runWithFakeGitHub(mode, output, failure = false) {
+function runWithFakeGitHub(mode, output, { failure = false, privateLanguages = { Python: 15 },
+  publicLanguages } = {}) {
+  const publicRepo = { ...repo, id: 42, name: 'synthetic-public-repo', private: false, visibility: 'public' }
   const responses = {
-    '/user': { login: 'souruuu', id: 42, public_repos: 0 },
+    '/user': { login: 'souruuu', id: 42, public_repos: publicLanguages ? 1 : 0 },
     '/user/repos': [repo],
-    '/users/souruuu/repos': [],
+    '/users/souruuu/repos': publicLanguages ? [publicRepo] : [],
     [`/repositories/${id}`]: repo,
-    [`/repositories/${id}/languages`]: { Python: 15 },
+    [`/repositories/${id}/languages`]: privateLanguages,
+    '/repositories/42': publicRepo,
+    '/repositories/42/languages': publicLanguages,
   }
   const preload = `
     const responses = ${JSON.stringify(responses)}
@@ -55,9 +59,25 @@ test('manual verify is read-only and reports only fixed diagnostics on both succ
   assert.equal(verified.stderr, '')
   assert.equal(existsSync(output), false)
 
-  const failed = runWithFakeGitHub('generate', output, true)
+  const failed = runWithFakeGitHub('generate', output, { failure: true })
   assert.equal(failed.status, 1)
   assert.equal(failed.stdout, '')
   assert.equal(failed.stderr.trim(), 'GitHub API HTTP 403.')
+  assert.equal(existsSync(output), false)
+})
+
+test('private coverage accepts document bytes independently of display eligibility', (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'stats-filter-'))
+  t.after(() => rmSync(root, { recursive: true, force: true }))
+  const output = join(root, 'stats-output')
+  const privateLanguages = { 'Rich Text Format': 90_000 }
+
+  const verified = runWithFakeGitHub('verify', output, { privateLanguages, publicLanguages: { HTML: 15 } })
+  assert.equal(verified.status, 0)
+  assert.equal(verified.stdout.trim(), 'Approved private language coverage and SVG validation passed.')
+
+  const failed = runWithFakeGitHub('generate', output, { privateLanguages })
+  assert.equal(failed.status, 1)
+  assert.equal(failed.stderr.trim(), 'Language SVG generation or validation failed.')
   assert.equal(existsSync(output), false)
 })
