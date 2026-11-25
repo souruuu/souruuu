@@ -22,13 +22,16 @@ jobs:
         with:
           node-version: '24.22.3'
           package-manager-cache: false
-      - run: node --test tests/probe/stats.test.mjs
+      - name: Test the probe before accessing credentials
+        id: probe-tests
+        run: node --test tests/probe/stats.test.mjs
       - name: Probe with GITHUB_TOKEN
         run: node scripts/stats/probe.mjs
         env:
           PROBE_TOKEN: ${{ github.token }}
           PROBE_APPROVED_IDS: ${{ secrets.STATS_PRIVATE_REPOSITORY_IDS }}
       - name: Probe with Metadata Read PAT
+        if: ${{ !cancelled() && steps.probe-tests.conclusion == 'success' }}
         run: node scripts/stats/probe.mjs
         env:
           PROBE_TOKEN: ${{ secrets.STATS_READ_TOKEN }}

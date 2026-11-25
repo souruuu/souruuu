@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { parseInventory, probe, readGitHub } from '../../scripts/stats/probe.mjs'
+import { parseInventory, probe, readGitHub, validateCredential } from '../../scripts/stats/probe.mjs'
 
 test('validates the approved inventory without echoing it on failure', () => {
   assert.deepEqual(parseInventory('[11,12]'), new Set([11, 12]))
@@ -88,4 +88,11 @@ test('reports inaccessible metadata, truncated pagination and a visible restrict
   assert.equal(report.get('private-stars-metadata'), 'HTTP_404')
   assert.equal(report.get('prs'), 'INCOMPLETE')
   assert.equal(report.get('calendar'), 'VISIBLE_WITH_RESTRICTED_COUNT')
+})
+
+test('treats installation and personal credentials as opaque values', () => {
+  assert.equal(validateCredential('ghs_v2.fixture-value'), 'ghs_v2.fixture-value')
+  for (const bad of [undefined, '', 'fixture\nvalue']) {
+    assert.throws(() => validateCredential(bad), /^Error: TOKEN_UNAVAILABLE$/)
+  }
 })
