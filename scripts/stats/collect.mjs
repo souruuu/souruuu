@@ -46,7 +46,7 @@ export function createGitHub(token, { fetch = globalThis.fetch, pause = (ms) => 
         } catch (error) {
           failure = error?.name === 'TimeoutError' ? 'GitHub API request timed out.' : 'GitHub API request failed.'
         }
-        if (response?.ok) {
+        if (response?.status === 200) {
           try {
             return { body: await response.json(), link: response.headers.get('link') }
           } catch (error) {
@@ -106,6 +106,12 @@ function hasNextPage(link, page, path, ownerId) {
   return links.has('next')
 }
 
+function isOwnedRepository(repo, privateRepo) {
+  return Number.isSafeInteger(repo?.id) && repo.id > 0 && typeof repo.owner?.login === 'string'
+    && repo.owner.login.toLowerCase() === OWNER && repo.private === privateRepo
+    && repo.visibility === (privateRepo ? 'private' : 'public') && typeof repo.fork === 'boolean'
+}
+
 async function listOwned(api, ownerId, path, params, privateRepo) {
   const repositories = new Map()
   let probing = false
@@ -120,19 +126,22 @@ async function listOwned(api, ownerId, path, params, privateRepo) {
       throw new CollectionError('Incomplete GitHub repository pagination.')
     }
     for (const repo of body) {
-      if (!Number.isSafeInteger(repo?.id) || repo.id <= 0 || typeof repo.owner?.login !== 'string'
-          || repo.owner.login.toLowerCase() !== OWNER
-          || repo.private !== privateRepo || typeof repo.fork !== 'boolean'
-          || typeof repo.name !== 'string' || !/^[\w.-]{1,100}$/.test(repo.name)
-          || repo.name === '.' || repo.name === '..' || repositories.has(repo.id)) {
+      if (!isOwnedRepository(repo, privateRepo) || repositories.has(repo.id)) {
         throw new CollectionError('Invalid or duplicate GitHub repository metadata.')
       }
-      repositories.set(repo.id, repo)
+      repositories.set(repo.id, repo.fork)
     }
     if (!next && body.length < PAGE_SIZE) return repositories
     probing = !next
   }
   throw new CollectionError('GitHub repository pagination exceeded its safety limit.')
+}
+
+async function verifyScope(api, path, id, privateRepo) {
+  const { body } = await api.get(path)
+  if (!isOwnedRepository(body, privateRepo) || body.id !== id || body.fork) {
+    throw new CollectionError('Repository identity or scope changed during collection.')
+  }
 }
 
 export async function collectLanguages(api, approvedIds) {
@@ -142,20 +151,27 @@ export async function collectLanguages(api, approvedIds) {
     throw new CollectionError('Read token owner could not be verified.')
   }
   const privateRepos = await listOwned(api, viewer.id, '/user/repos', { visibility: 'private', affiliation: 'owner' }, true)
-  const selected = [...approvedIds].map((id) => privateRepos.get(id))
-  if (!selected.length || selected.some((repo) => !repo || repo.fork)) {
+  const selected = [...approvedIds]
+  if (!selected.length || selected.some((id) => privateRepos.get(id) !== false)) {
     throw new CollectionError('Approved private repository coverage could not be verified.')
   }
   const publicRepos = await listOwned(api, viewer.id, `/users/${OWNER}/repos`, { type: 'owner' }, false)
   if (publicRepos.size !== viewer.public_repos) throw new CollectionError('Public repository inventory is incomplete.')
-  if (selected.some(({ id }) => publicRepos.has(id))) throw new CollectionError('Repository visibility changed during collection.')
+  if (selected.some((id) => publicRepos.has(id))) throw new CollectionError('Repository visibility changed during collection.')
+  const publicNonForks = [...publicRepos].filter(([, fork]) => !fork).map(([id]) => id)
   const totals = new Map()
   let privateBytes = 0
-  for (const repo of [...publicRepos.values()].filter((item) => !item.fork).concat(selected)) {
-    const { body, link } = await api.get(`/repos/${OWNER}/${encodeURIComponent(repo.name)}/languages`)
+  for (const id of publicNonForks.concat(selected)) {
+    const privateRepo = approvedIds.has(id)
+    // Bind the language request to the inventory ID and check scope on both
+    // sides of the read so a rename cannot substitute a different repository.
+    const path = `/repositories/${id}`
+    await verifyScope(api, path, id, privateRepo)
+    const { body, link } = await api.get(`${path}/languages`)
     if (!body || typeof body !== 'object' || Array.isArray(body) || link) {
       throw new CollectionError('Invalid GitHub language response.')
     }
+    await verifyScope(api, path, id, privateRepo)
     for (const [name, bytes] of Object.entries(body)) {
       if (!Object.hasOwn(languageColors, name) || !Number.isSafeInteger(bytes) || bytes <= 0) {
         throw new CollectionError('Unexpected GitHub language label or byte count.')
@@ -163,14 +179,7 @@ export async function collectLanguages(api, approvedIds) {
       const total = (totals.get(name) ?? 0) + bytes
       if (!Number.isSafeInteger(total)) throw new CollectionError('Language byte total exceeded its supported range.')
       totals.set(name, total)
-      if (repo.private) privateBytes += bytes
-    }
-    // The language URL is name-based. Recheck stable identity, ownership and
-    // visibility after reading to detect a rename, transfer or replacement.
-    const { body: current } = await api.get(`/repos/${OWNER}/${encodeURIComponent(repo.name)}`)
-    if (current?.id !== repo.id || current.private !== repo.private || current.fork !== false
-        || current.owner?.login !== OWNER) {
-      throw new CollectionError('Repository identity or scope changed during collection.')
+      if (privateRepo) privateBytes += bytes
     }
   }
   if (!Number.isSafeInteger(privateBytes) || privateBytes === 0) {

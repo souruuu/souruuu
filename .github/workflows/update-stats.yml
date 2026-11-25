@@ -23,6 +23,7 @@ jobs:
       github.ref == 'refs/heads/main' &&
       (github.event_name == 'workflow_dispatch' ||
        (github.event_name == 'schedule' && vars.STATS_PUBLISH_LANGUAGES == 'true'))
+    environment: profile-stats-read
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
@@ -49,7 +50,7 @@ jobs:
         env:
           STATS_READ_TOKEN: ${{ secrets.STATS_READ_TOKEN }}
           STATS_PRIVATE_REPOSITORY_IDS: ${{ secrets.STATS_PRIVATE_REPOSITORY_IDS }}
-          PUBLISH: ${{ github.event_name == 'schedule' || inputs.publish }}
+          PUBLISH: ${{ vars.STATS_PUBLISH_LANGUAGES == 'true' && (github.event_name == 'schedule' || inputs.publish) }}
         run: |
           if [[ "$PUBLISH" == 'true' ]]; then
             node scripts/stats/run.mjs generate "$RUNNER_TEMP/stats-output"
@@ -113,10 +114,13 @@ jobs:
         if: steps.commit.outputs.changed == 'true'
         env:
           PUSH_TOKEN: ${{ github.token }}
+          GIT_TRACE_REDACT: '1'
         run: |
+          set +x
           export GIT_CONFIG_COUNT=1
           export GIT_CONFIG_KEY_0=http.https://github.com/.extraheader
           auth="$(printf 'x-access-token:%s' "$PUSH_TOKEN" | base64 -w0)"
+          printf '::add-mask::%s\n' "$auth"
           export GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth"
           unset PUSH_TOKEN auth
           git push origin HEAD:refs/heads/main
