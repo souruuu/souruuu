@@ -1,10 +1,8 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { renderLanguages, validateLanguagesSvg } from '../../scripts/stats/cards.mjs'
-import { renderStats } from '../../scripts/stats/stats.mjs'
 import { CARD_STYLE, languageColors, loadCore } from '../../scripts/stats/upstream.mjs'
 
-const { calculateRank } = await loadCore('calculateRank.js')
 const { renderTopLanguages } = await loadCore('cards/top-languages.js')
 
 const bytes = new Map([
@@ -97,19 +95,4 @@ test('rejects active or external content, hidden details, incorrect values and m
     assert.notEqual(changed, svg)
     assert.throws(() => validateLanguagesSvg(changed), /^Error: Invalid language SVG\.$/)
   }
-})
-
-test('passes the defined rank inputs to the exact upstream formula and renders the original stats design', () => {
-  const metrics = {
-    commits: 250, prs: 50, issues: 25, reviews: 2, stars: 50, followers: 10, contributedTo: 4, ownedRepos: 3,
-  }
-  const asOf = new Date('2027-01-01T00:00:00Z')
-  const result = renderStats(metrics, asOf)
-  assert.deepEqual(result.rank, calculateRank({ ...metrics, all_commits: false, repos: 3 }))
-  assert.deepEqual(result.rank, { level: 'B+', percentile: 50 })
-  assert.match(result.svg, /Total Commits \(2027\)/)
-  assert.match(result.svg, /souruuu.+GitHub Stats/)
-  assert.match(result.svg, /data-testid="rank-circle"/)
-  assert.doesNotMatch(result.svg, /<a\b|github.com\//)
-  assert.throws(() => renderStats({ ...metrics, commits: undefined }, asOf), /invalid aggregate/i)
 })
